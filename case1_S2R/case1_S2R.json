@@ -1,0 +1,46 @@
+{
+  "name" : "case1_S2R",
+  "jobMode" : "SCRIPT",
+  "description" : "",
+  "role" : "arn:aws:iam::390402548407:role/service-role/AWSGlueServiceRole",
+  "executionProperty" : {
+    "maxConcurrentRuns" : 1
+  },
+  "command" : {
+    "name" : "glueetl",
+    "scriptLocation" : "s3://aws-glue-assets-390402548407-us-east-2/scripts/case1_S2R.py",
+    "pythonVersion" : "3"
+  },
+  "defaultArguments" : {
+    "--IAM_ROLE" : "arn:aws:iam::390402548407:role/RedshiftS3Role",
+    "--enable-glue-datacatalog" : "true",
+    "--job-bookmark-option" : "job-bookmark-disable",
+    "--REDSHIFT_DB_USER" : "jajji",
+    "--TempDir" : "s3://aws-glue-assets-390402548407-us-east-2/temporary/",
+    "--enable-metrics" : "true",
+    "--enable-spark-ui" : "true",
+    "--spark-event-logs-path" : "s3://aws-glue-assets-390402548407-us-east-2/sparkHistoryLogs/",
+    "--REDSHIFT_DATABASE" : "dev",
+    "--enable-job-insights" : "true",
+    "--enable-observability-metrics" : "true",
+    "--TABLE_NAME" : "sales_data",
+    "--enable-continuous-cloudwatch-log" : "true",
+    "--job-language" : "python",
+    "--REDSHIFT_CLUSTER_ID" : "redshift-cluster-3",
+    "--REGION" : "us-east-2"
+  },
+  "maxRetries" : 0,
+  "allocatedCapacity" : 2,
+  "timeout" : 15,
+  "maxCapacity" : 2.0,
+  "glueVersion" : "5.0",
+  "numberOfWorkers" : 2,
+  "workerType" : "G.1X",
+  "executionClass" : "STANDARD",
+  "sourceControlDetails" : {
+    "provider" : "GITHUB",
+    "repository" : "Loadtoredshift",
+    "branch" : "Jay_feature",
+    "folder" : "case1_S2R"
+  }
+}
