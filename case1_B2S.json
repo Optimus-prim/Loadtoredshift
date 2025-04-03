@@ -1,0 +1,118 @@
+{
+	"jobConfig": {
+		"name": "case1_B2S",
+		"description": "",
+		"role": "arn:aws:iam::390402548407:role/service-role/AWSGlueServiceRole",
+		"command": "glueetl",
+		"version": "5.0",
+		"runtime": null,
+		"workerType": "G.1X",
+		"numberOfWorkers": 2,
+		"maxCapacity": 2,
+		"jobRunQueuingEnabled": false,
+		"maxRetries": 0,
+		"timeout": 4,
+		"maxConcurrentRuns": 1,
+		"security": "none",
+		"scriptName": "case1_B2S.py",
+		"scriptLocation": "s3://aws-glue-assets-390402548407-us-east-2/scripts/",
+		"language": "python-3",
+		"spark": false,
+		"sparkConfiguration": "standard",
+		"jobParameters": [
+			{
+				"key": "--input_bucket",
+				"value": "case1bucket-e2e",
+				"existing": false
+			},
+			{
+				"key": "--input_prefix",
+				"value": "Raw_data/Bronze",
+				"existing": false
+			},
+			{
+				"key": "--log_prefix",
+				"value": "logs/processed_log.txt",
+				"existing": false
+			},
+			{
+				"key": "--output_bucket",
+				"value": "case1bucket-e2e",
+				"existing": false
+			},
+			{
+				"key": "--output_folder",
+				"value": "Staging/Silver",
+				"existing": false
+			}
+		],
+		"tags": [],
+		"jobMode": "DEVELOPER_MODE",
+		"createdOn": "2025-03-17T22:42:49.195Z",
+		"developerMode": true,
+		"connectionsList": [],
+		"temporaryDirectory": "s3://aws-glue-assets-390402548407-us-east-2/temporary/",
+		"logging": true,
+		"glueHiveMetastore": true,
+		"etlAutoTuning": true,
+		"metrics": true,
+		"observabilityMetrics": true,
+		"bookmark": "job-bookmark-disable",
+		"sparkPath": "s3://aws-glue-assets-390402548407-us-east-2/sparkHistoryLogs/",
+		"flexExecution": false,
+		"minFlexWorkers": null,
+		"maintenanceWindow": null,
+		"pythonPath": null
+	},
+	"dag": {
+		"node-1742251463646": {
+			"nodeId": "node-1742251463646",
+			"dataPreview": false,
+			"previewAmount": 0,
+			"inputs": [
+				"node-1742251804338"
+			],
+			"name": "Amazon S3",
+			"generatedNodeName": "AmazonS3_node1742251463646",
+			"classification": "DataSink",
+			"type": "S3",
+			"streamingBatchInterval": 100,
+			"format": "glueparquet",
+			"compression": "snappy",
+			"path": "s3://data-lake/silver/sales_data/",
+			"partitionKeys": [],
+			"schemaChangePolicy": {
+				"enableUpdateCatalog": false,
+				"updateBehavior": null,
+				"database": null,
+				"table": null
+			},
+			"updateCatalogOptions": "none",
+			"autoDataQuality": {
+				"isEnabled": true,
+				"evaluationContext": "EvaluateDataQuality_node1742251334864"
+			},
+			"calculatedType": "",
+			"codeGenVersion": 2
+		},
+		"node-1742251804338": {
+			"nodeId": "node-1742251804338",
+			"dataPreview": false,
+			"previewAmount": 0,
+			"inputs": [],
+			"name": "AWS Glue Data Catalog",
+			"generatedNodeName": "AWSGlueDataCatalog_node1742251804338",
+			"classification": "DataSource",
+			"type": "Catalog",
+			"isCatalog": true,
+			"database": "redshift_metadata",
+			"table": "s3b_to_s3sbronze",
+			"calculatedType": "",
+			"runtimeParameters": [],
+			"codeGenVersion": 2
+		}
+	},
+	"hasBeenSaved": false,
+	"usageProfileName": null,
+	"script": "import boto3\nimport pandas as pd\nimport logging\nfrom io import BytesIO\nfrom datetime import datetime\nfrom awsglue.utils import getResolvedOptions\nimport sys\n\n# Logging Configuration\nlogging.basicConfig(level=logging.INFO, format=\"%(asctime)s - %(levelname)s - %(message)s\")\nlogger = logging.getLogger(__name__)\n\n# Extract Glue arguments\nargs = getResolvedOptions(sys.argv, ['input_bucket', 'input_prefix', 'output_bucket', 'output_folder', 'log_prefix'])\n\n# Initialize boto3 client\ns3 = boto3.client('s3')\n\n# Read the processed log file\ndef read_processed_log(bucket, log_prefix):\n    try:\n        logger.info(\"Reading processed log file...\")\n        obj = s3.get_object(Bucket=bucket, Key=log_prefix)\n        processed_files = set(obj['Body'].read().decode('utf-8').strip().split('\\n'))\n        logger.info(f\"Processed log read successfully with {len(processed_files)} entries.\")\n        return processed_files\n    except s3.exceptions.NoSuchKey:\n        logger.warning(\"Processed log file not found. Assuming no files processed yet.\")\n        return set()\n\n# Write processed files to log\ndef write_processed_log(bucket, log_prefix, processed_files):\n    logger.info(f\"Updating processed log with {len(processed_files)} files.\")\n    s3.put_object(Bucket=bucket, Key=log_prefix, Body='\\n'.join(processed_files))\n    logger.info(\"Processed log updated successfully.\")\n\n# Read new CSV files from Bronze Layer in chunks\ndef read_csv_from_s3(bucket, prefix, processed_files, chunk_size=100):\n    csv_chunks = []\n    new_processed_files = set()\n\n    logger.info(\"Fetching new data files from Bronze Layer...\")\n    response = s3.list_objects_v2(Bucket=bucket, Prefix=prefix)\n    \n    for obj in response.get('Contents', []):\n        key = obj['Key']\n        if key.endswith('.csv') and key not in processed_files:\n            logger.info(f\"Reading new file: {key}\")\n            data = s3.get_object(Bucket=bucket, Key=key)['Body'].read().decode('utf-8')\n            for chunk in pd.read_csv(BytesIO(data.encode()), chunksize=chunk_size):\n                csv_chunks.append(chunk)\n            new_processed_files.add(key)\n\n    logger.info(f\"Total new files to process: {len(new_processed_files)}\")\n    return csv_chunks, new_processed_files\n\n# Data Cleaning\ndef clean_data(df):\n    logger.info(\"Starting data cleaning...\")\n    try:\n        df.drop_duplicates(inplace=True)\n        df['price'].fillna(df.groupby('category')['price'].transform('mean'), inplace=True)\n        df['category'] = df['category'].apply(lambda x: x.split()[0] if pd.notna(x) else x)\n        df['date'] = pd.to_datetime(df['date'], format=\"%d/%m/%Y\").dt.strftime(\"%Y/%m/%d\")\n        df['price_category'] = df['price'].apply(lambda x: 'Expensive' if x > 100 else 'Affordable')\n        logger.info(f\"Data cleaning completed successfully. {len(df)} records cleaned.\")\n        return df\n    except Exception as e:\n        logger.error(f\"Error during data cleaning: {e}\", exc_info=True)\n        raise\n\n# Write data to Silver Layer as CSV\ndef write_csv_to_s3(df, bucket, prefix):\n    timestamp = datetime.now().strftime(\"%Y%m%d_%H%M%S\")\n    file_key = f\"{prefix}/sales_data_{timestamp}.csv\"\n\n    buffer = BytesIO()\n    df.to_csv(buffer, index=False)\n    buffer.seek(0)\n\n    try:\n        s3.put_object(Bucket=bucket, Key=file_key, Body=buffer.getvalue())\n        logger.info(f\"Data successfully written to {file_key}\")\n    except Exception as e:\n        logger.error(f\"Error writing CSV to Silver Layer: {e}\", exc_info=True)\n        raise\n\n# Main Execution\ndef main():\n    logger.info(\"Starting Bronze to Silver ETL Pipeline...\")\n    \n    processed_files = read_processed_log(args['output_bucket'], args['log_prefix'])\n\n    bronze_data_chunks, new_processed_files = read_csv_from_s3(\n        args['input_bucket'], args['input_prefix'], processed_files, chunk_size=100\n    )\n\n    if not bronze_data_chunks:\n        logger.info(\"No new data found. Nothing to write.\")\n    else:\n        for chunk in bronze_data_chunks:\n            cleaned_data = clean_data(chunk)\n            write_csv_to_s3(cleaned_data, args['output_bucket'], args['output_folder'])\n\n        # Update the processed log file\n        write_processed_log(args['output_bucket'], args['log_prefix'], processed_files.union(new_processed_files))\n        logger.info(\"Data consolidation and write to Silver Layer completed successfully.\")\n\nif __name__ == \"__main__\":\n    try:\n        main()\n    except Exception as e:\n        logger.error(f\"Pipeline failed due to an unexpected error: {e}\", exc_info=True)\n\n"
+}
