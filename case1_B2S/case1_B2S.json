@@ -1,0 +1,44 @@
+{
+  "name" : "case1_B2S",
+  "jobMode" : "SCRIPT",
+  "description" : "",
+  "role" : "arn:aws:iam::390402548407:role/service-role/AWSGlueServiceRole",
+  "executionProperty" : {
+    "maxConcurrentRuns" : 1
+  },
+  "command" : {
+    "name" : "glueetl",
+    "scriptLocation" : "s3://aws-glue-assets-390402548407-us-east-2/scripts/case1_B2S.py",
+    "pythonVersion" : "3"
+  },
+  "defaultArguments" : {
+    "--output_folder" : "Staging/Silver",
+    "--output_bucket" : "case1bucket-e2e",
+    "--enable-glue-datacatalog" : "true",
+    "--job-bookmark-option" : "job-bookmark-disable",
+    "--TempDir" : "s3://aws-glue-assets-390402548407-us-east-2/temporary/",
+    "--enable-metrics" : "true",
+    "--spark-event-logs-path" : "s3://aws-glue-assets-390402548407-us-east-2/sparkHistoryLogs/",
+    "--enable-job-insights" : "true",
+    "--enable-observability-metrics" : "true",
+    "--enable-continuous-cloudwatch-log" : "true",
+    "--job-language" : "python",
+    "--input_prefix" : "Raw_data/Bronze",
+    "--input_bucket" : "case1bucket-e2e",
+    "--log_prefix" : "logs/processed_log.txt"
+  },
+  "maxRetries" : 0,
+  "allocatedCapacity" : 2,
+  "timeout" : 4,
+  "maxCapacity" : 2.0,
+  "glueVersion" : "5.0",
+  "numberOfWorkers" : 2,
+  "workerType" : "G.1X",
+  "executionClass" : "STANDARD",
+  "sourceControlDetails" : {
+    "provider" : "GITHUB",
+    "repository" : "Loadtoredshift",
+    "branch" : "Jay_feature",
+    "folder" : "case1_B2S"
+  }
+}
