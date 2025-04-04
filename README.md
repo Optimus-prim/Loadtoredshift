@@ -1,4 +1,3 @@
-# Loadtoredshift
 
 
 This document outlines the architecture, design, and implementation details of an end-to-end ETL
